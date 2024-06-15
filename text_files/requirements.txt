@@ -1,0 +1,16 @@
+yt-dlp
+opencv-python
+pytesseract
+Pillow
+gtts
+ffmpeg-python
+pydub
+transformers
+torch
+torchvision
+torchaudio
+google-api-python-client
+moviepy
+google-cloud-texttospeech
+openai
+google_images_download

@@ -1,0 +1,15 @@
+yt-dlp
+opencv-python
+pytesseract
+Pillow
+gtts
+ffmpeg-python
+pydub
+transformers
+torch==1.12.1+cpu  # Replace with the latest CPU-only version
+torchvision==0.13.1+cpu  # Replace with the latest CPU-only version
+torchaudio==0.12.1+cpu  # Replace with the latest CPU-only version
+google-api-python-client
+moviepy
+google-cloud-texttospeech
+openai

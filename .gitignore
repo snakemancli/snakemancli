@@ -1,0 +1,23 @@
+# Ignore Python compiled files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore virtual environment directory
+venv/
+
+# Ignore created files 
+finished_material/
+
+# Ignore temporary files
+temp/
+*.tmp
+*.log
+
+# Ignore API keys and sensitive files
+snakeman_execute.sh
+
+# Ignore other sensitive or unnecessary files
+*.json
+ 
+ finished_material/

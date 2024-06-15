@@ -38,6 +38,7 @@ Before running the script, you need to update the `snakemacli.sh` file with your
 2. You are ready to use the tool:
     ```sh
     chmod +x snakemancli.sh
+    ./snakemancli.sh
 
     ```
 

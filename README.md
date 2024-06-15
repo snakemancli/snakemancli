@@ -44,5 +44,5 @@ Before running the script, you need to update the `snakemacli.sh` file with your
 
 #
 
-This project is licensed under the Zero-Clause BSD License - see the LICENSE file for details.
+This project is licensed under the Zero-Clause BSD License - see the [LICENSE](LICENSE) file for details.
 

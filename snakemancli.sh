@@ -3,6 +3,7 @@
 export OPENAI_API_KEY="sk-pppppppprrrrrrrooooooojjjjjeeeeccccctttttkkkkkeeeeyyyyy"
 export GOOGLE_APPLICATION_CREDENTIALS="/home/based/king/snakeman/project-name-420-twotimesaday.json"
 export YOUTUBE_API_KEY="g3tth3k3y5fr0mth3w3b5it35"
+export SEARCH_ENGINE_ID="where_key"
 
 
 

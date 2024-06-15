@@ -24,7 +24,7 @@ Snakeman CLI is a command-line interface for automating various video and image 
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/Jason-Goon/snakeman-CLI.git
+    git clone https://github.com/Jason-Goon/snakemancli.git
     cd snakeman-CLI
     ```
 

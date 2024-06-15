@@ -8,6 +8,8 @@ venv/
 
 # Ignore created files 
 finished_material/
+source_material/
+
 
 # Ignore temporary files
 temp/

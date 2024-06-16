@@ -1,5 +1,3 @@
-# srcipts/warhammer.py  |  makes long form warhammer content from existing sources
-
 import os
 import random
 import ffmpeg
@@ -11,8 +9,6 @@ from openai import OpenAI
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-
-
 def cleanup_folder(folder, exclude=[]):
     if os.path.exists(folder):
         for file in os.listdir(folder):
@@ -21,9 +17,6 @@ def cleanup_folder(folder, exclude=[]):
                 os.remove(file_path)
     else:
         os.makedirs(folder)
-
-
-
 
 def generate_tts_for_script(script_path, tts_output_folder):
     tts_output_path = os.path.join(tts_output_folder, "script_tts.mp3")
@@ -60,9 +53,6 @@ def generate_tts_for_script(script_path, tts_output_folder):
     
     return tts_output_path
 
-
-
-
 def combine_music_and_tts(tts_path, music_folder, output_folder, duration=780):
     final_audio_path = os.path.join(output_folder, "final_combined_audio.mp3")
     if os.path.exists(final_audio_path):
@@ -95,7 +85,6 @@ def combine_music_and_tts(tts_path, music_folder, output_folder, duration=780):
         tts_audio = tts_audio[:duration * 1000]
         tts_duration_ms = duration * 1000
 
-
     combined_audio = combined_audio[:tts_duration_ms]
     combined_audio = combined_audio - 18  
     tts_audio = tts_audio + 6     
@@ -104,9 +93,6 @@ def combine_music_and_tts(tts_path, music_folder, output_folder, duration=780):
     final_combined.export(final_audio_path, format="mp3")
     
     return final_audio_path
-
-
-
 
 def create_final_video(image_folders, audio_path, project_folder, duration=780):
     temp_video_path = os.path.join(project_folder, "temp_video.mp4")
@@ -133,7 +119,6 @@ def create_final_video(image_folders, audio_path, project_folder, duration=780):
             f.write(f"duration {duration / len(selected_images)}\n")
         f.write(f"file '{os.path.abspath(selected_images[-1])}'\n")  
 
-    
     ffmpeg.input(images_list_path, format='concat', safe=0).output(
         temp_video_path,
         vcodec='libx264',
@@ -167,13 +152,30 @@ def create_final_video(image_folders, audio_path, project_folder, duration=780):
     
     return trimmed_output_path
 
-
-
 def process_warhammer40k_content():
-    root_folder = "40K"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    root_folder = os.path.abspath(os.path.join(script_dir, '..', 'source_material', '40K'))  # Adjusted path
     music_folder = os.path.join(root_folder, "music")
     images_folder = os.path.join(root_folder, "images")
     scripts_folder = os.path.join(root_folder, "scripts")
+    
+    # Print paths for debugging
+    print(f"Script directory: {script_dir}")
+    print(f"Root folder: {root_folder}")
+    print(f"Music folder: {music_folder}")
+    print(f"Images folder: {images_folder}")
+    print(f"Scripts folder: {scripts_folder}")
+    
+    # Ensure necessary directories exist
+    if not os.path.exists(scripts_folder):
+        print(f"Scripts folder not found: {scripts_folder}. Exiting...")
+        return
+    if not os.path.exists(music_folder):
+        print(f"Music folder not found: {music_folder}. Exiting...")
+        return
+    if not os.path.exists(images_folder):
+        print(f"Images folder not found: {images_folder}. Exiting...")
+        return
     
     available_image_folders = {
         "1": os.path.join(images_folder, "emperor"),
@@ -189,7 +191,6 @@ def process_warhammer40k_content():
         "11": os.path.join(images_folder, "tyranid"),
         "12": os.path.join(images_folder, "scale"),
         "13": os.path.join(images_folder, "hive")
-
     }
     
     print("Select image folders to use (comma separated list of numbers):")
@@ -215,6 +216,9 @@ def process_warhammer40k_content():
     
     print("Available scripts:")
     scripts = [file for file in os.listdir(scripts_folder) if file.endswith('.txt')]
+    if not scripts:
+        print("No script files found in the scripts folder. Exiting...")
+        return
     for i, script in enumerate(scripts):
         print(f"{i + 1} = {script}")
     script_choice = int(input("Select a script to use: ")) - 1
@@ -224,8 +228,8 @@ def process_warhammer40k_content():
         return
     
     script_path = os.path.join(scripts_folder, scripts[script_choice])
-    tts_output_folder = "tts_outputs"
-    project_folder = "project_final_clips"
+    tts_output_folder = os.path.join(script_dir, '..', 'temp', 'tts_outputs')  # Adjusted path
+    project_folder = os.path.join(script_dir, '..', 'finished_material', 'project_final_clips')  # Adjusted path
     
     os.makedirs(tts_output_folder, exist_ok=True)
     os.makedirs(project_folder, exist_ok=True)

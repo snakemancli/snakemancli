@@ -11,6 +11,7 @@ finished_material/
 source_material/
 
 
+
 # Ignore temporary files
 temp/
 *.tmp
@@ -19,7 +20,8 @@ temp/
 # Ignore API keys and sensitive files
 snakeman_execute.sh
 
+
+
 # Ignore other sensitive or unnecessary files
 *.json
  
- finished_material/

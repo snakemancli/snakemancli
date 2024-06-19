@@ -1,12 +1,14 @@
 import os
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from pathlib import Path
 
 # Constants
 OUTPUT_FOLDER = "./finished_material/40K_thumbnails"
 FONT_PATH = "./fonts/Roboto-Thin.ttf"
-FONT_SIZE = 100
+TITLE_FONT_SIZE = 110
+SUBTITLE_FONT_SIZE = 100
 TEXT_COLOR = (255, 255, 255, 255)  # White color with full opacity
+STROKE_WIDTH = 2  # Decreased stroke width
 ROUNDED_CORNER_RADIUS = 50
 IMAGE_SIZE = (1280, 720)  # New size for the thumbnails
 
@@ -28,51 +30,75 @@ def create_rounded_thumbnail(image_path, output_path, title_text, subtitle_text)
             txt_img = Image.new("RGBA", img.size, (255, 255, 255, 0))
             draw = ImageDraw.Draw(txt_img)
 
-            # Load font
-            font = ImageFont.truetype(FONT_PATH, FONT_SIZE)
-            subtitle_font = font  # Same font size for subtitle
+            # Load fonts
+            title_font = ImageFont.truetype(FONT_PATH, TITLE_FONT_SIZE)
+            subtitle_font = ImageFont.truetype(FONT_PATH, SUBTITLE_FONT_SIZE)
 
             # Calculate text size and position for title
-            title_bbox = draw.textbbox((0, 0), title_text, font=font)
+            title_bbox = draw.textbbox((0, 0), title_text, font=title_font, stroke_width=STROKE_WIDTH)
             title_width = title_bbox[2] - title_bbox[0]
             title_height = title_bbox[3] - title_bbox[1]
 
             # Calculate text size and position for subtitle
-            subtitle_bbox = draw.textbbox((0, 0), subtitle_text, font=subtitle_font)
+            subtitle_bbox = draw.textbbox((0, 0), subtitle_text, font=subtitle_font, stroke_width=STROKE_WIDTH)
             subtitle_width = subtitle_bbox[2] - subtitle_bbox[0]
             subtitle_height = subtitle_bbox[3] - subtitle_bbox[1]
 
-            # Calculate total width and height for the black box
-            box_width = max(title_width, subtitle_width) + 40  # 20px padding on each side
-            total_height = title_height + subtitle_height + 100  # 50px spacing between title and subtitle, 10px padding above and below
+            # Calculate total width and height for the black box with padding
+            padding = 20
+            box_width = max(title_width, subtitle_width) + 2 * padding
+            total_height = title_height + subtitle_height + 2 * padding + 50  # 50px spacing between title and subtitle, 20px padding above and below
             box_x = (img.width - box_width) // 2
             box_y = img.height - total_height - 160  # 50 pixels from the bottom
 
-            # Draw semi-transparent black box for both title and subtitle
-            draw.rectangle(
-                [(box_x, box_y), (box_x + box_width, box_y + total_height)],
-                fill=(0, 0, 0, 128)
-            )
+            # Draw semi-transparent black box with blur for both title and subtitle
+            black_box = Image.new("RGBA", (box_width, total_height), (0, 0, 0, 238))
+            txt_img.paste(black_box, (box_x, box_y), black_box)
 
-            # Draw title text
+            # Debug: Save the black box image for inspection
+            black_box.save("debug_black_box.png")
+    
+
+            # Draw title text with stroke
             title_x = (img.width - title_width) // 2
-            title_y = box_y + 10  # 10 pixels padding
-            draw.text((title_x, title_y), title_text, font=font, fill=TEXT_COLOR)
+            title_y = box_y + padding  # 20 pixels padding
+            draw.text((title_x, title_y), title_text, font=title_font, fill=TEXT_COLOR, stroke_width=STROKE_WIDTH, stroke_fill=TEXT_COLOR)
 
-            # Draw subtitle text
+            # Draw subtitle text with stroke
             subtitle_x = (img.width - subtitle_width) // 2
-            subtitle_y = title_y + title_height + 35  # 50 pixels padding between title and subtitle
-            draw.text((subtitle_x, subtitle_y), subtitle_text, font=subtitle_font, fill=TEXT_COLOR)
+            subtitle_y = title_y + title_height + 30  # 30 pixels padding between title and subtitle
+            draw.text((subtitle_x, subtitle_y), subtitle_text, font=subtitle_font, fill=TEXT_COLOR, stroke_width=STROKE_WIDTH, stroke_fill=TEXT_COLOR)
 
-            # Combine the image with the text overlay
+
+
+
+            # black corners 
+            corner_length = 90  # Length 
+            corner_thickness = 7  # Thickness
+            corner_color = (0, 0, 0, 255)  # Black 
+            draw.rectangle([(box_x - padding, box_y - padding), (box_x - padding + corner_length, box_y - padding + corner_thickness)], fill=corner_color)  # Top left horizontal
+            draw.rectangle([(box_x - padding, box_y - padding), (box_x - padding + corner_thickness, box_y - padding + corner_length)], fill=corner_color)  # Top left vertical
+            draw.rectangle([(box_x + box_width + padding - corner_length, box_y - padding), (box_x + box_width + padding, box_y - padding + corner_thickness)], fill=corner_color)  # Top right horizontal
+            draw.rectangle([(box_x + box_width + padding - corner_thickness, box_y - padding), (box_x + box_width + padding, box_y - padding + corner_length)], fill=corner_color)  # Top right vertical
+            draw.rectangle([(box_x - padding, box_y + total_height + padding - corner_thickness), (box_x - padding + corner_length, box_y + total_height + padding)], fill=corner_color)  # Bottom left horizontal
+            draw.rectangle([(box_x - padding, box_y + total_height + padding - corner_length), (box_x - padding + corner_thickness, box_y + total_height + padding)], fill=corner_color)  # Bottom left vertical
+            draw.rectangle([(box_x + box_width + padding - corner_length, box_y + total_height + padding - corner_thickness), (box_x + box_width + padding, box_y + total_height + padding)], fill=corner_color)  # Bottom right horizontal
+            draw.rectangle([(box_x + box_width + padding - corner_thickness, box_y + total_height + padding - corner_length), (box_x + box_width + padding, box_y + total_height + padding)], fill=corner_color)  # Bottom right vertical
+
+           
             combined_img = Image.alpha_composite(img, txt_img)
 
-            # Convert RGBA to RGB before saving
+            # RGBA to RGB 
             combined_img = combined_img.convert("RGB")
 
             # Save the final thumbnail
             combined_img.save(output_path, format="JPEG")
             print(f"Thumbnail saved to {output_path}")
+
+
+
+
+
 
     except Exception as e:
         print(f"Error processing {image_path}: {e}")

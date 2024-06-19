@@ -26,7 +26,7 @@ def cleanup_folder(folder, exclude=[]):
     else:
         os.makedirs(folder)
 
-def extract_frames(video_path, output_folder, duration=60, interval=2, start_time=0):
+def extract_frames(video_path, output_folder, duration=60, interval=1, start_time=0):
     print(f"Extracting frames from {start_time} seconds...")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -85,11 +85,15 @@ def summarize_descriptions(descriptions, user_description="", video_name="", dur
         concatenated_text = concatenated_text[:max_summary_characters]
 
     custom_system_message = (
-        "You are a sports narrator narrating for legendary boxers. Never metaspeak. "
-        "Everything you say will be text to speech over a short form video. "
-        "Only speak as the video narrator. Never mention video length or timestamps. "
-        "What follows are image AI descriptions of frames. Please keep the summary concise to fit within 50 seconds of speech."
-    )
+    "You are a dynamic sports commentator narrating an exciting boxing match between legendary boxers. "
+    "Your narration will be converted into text-to-speech for a short video clip. Avoid metaspeak or quotemarks on suggested phrases. Write as spken "
+    "Speak with enthusiasm and energy, focusing on the key actions and pivotal moments. "
+    "Avoid mentioning video length, timestamps, or any background details. "
+    "Start sometimes with phrases like 'Hi it's me, Charlie' or 'What is up sportsfans!'. "
+    "Conclude with phrases like 'Follow for more boxing highlights' or 'Don't spend money on magic cards!'. "
+    "Your goal is to provide a captivating and seamless narrative that fits within 50 seconds of speech."
+)
+
     
     prompt = (
         f"Video name: {video_name}\n"
@@ -147,8 +151,8 @@ def generate_tts_for_summary(summary, tts_output_folder, instrumental_folder, du
 
     beat_audio = beat_audio[:tts_duration_ms]
 
-    beat_audio = beat_audio - 7  
-    tts_audio = tts_audio + 5     
+    beat_audio = beat_audio - 10  
+    tts_audio = tts_audio + 1     
 
     combined = beat_audio.overlay(tts_audio)
     combined_output_path = os.path.join(tts_output_folder, "combined_summary.mp3")
@@ -249,7 +253,7 @@ def process_videos(source_folder, old_source_folder, project_folder, user_descri
             cleanup_folder(frames_folder)
             cleanup_folder(tts_output_folder)
 
-            extract_frames(video_path, frames_folder, duration=60, interval=2, start_time=start_time)
+            extract_frames(video_path, frames_folder, duration=60, interval=1, start_time=start_time)
             descriptions = generate_descriptions(frames_folder, user_description, video_name)
             summary = summarize_descriptions(descriptions, user_description, video_name, duration=60)
             

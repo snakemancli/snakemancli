@@ -53,7 +53,7 @@ def generate_tts_for_script(script_path, tts_output_folder):
     
     return tts_output_path
 
-def combine_music_and_tts(tts_path, music_folder, output_folder, duration=780):
+def combine_music_and_tts(tts_path, music_folder, output_folder):
     final_audio_path = os.path.join(output_folder, "final_combined_audio.mp3")
     if os.path.exists(final_audio_path):
         print(f"Combined audio already exists at {final_audio_path}. Skipping music combination.")
@@ -73,28 +73,20 @@ def combine_music_and_tts(tts_path, music_folder, output_folder, duration=780):
         combined_audio += beat_audio
     
     tts_audio = AudioSegment.from_file(tts_path)
-    tts_duration_ms = tts_audio.duration_seconds * 1000
-
-    if tts_duration_ms < duration * 1000:
-        silence_duration_ms = (duration * 1000) - tts_duration_ms
-        silence = AudioSegment.silent(duration=silence_duration_ms)
-        tts_audio = tts_audio + silence
-        tts_duration_ms = duration * 1000
-
-    if tts_duration_ms > duration * 1000:
-        tts_audio = tts_audio[:duration * 1000]
-        tts_duration_ms = duration * 1000
+    silence = AudioSegment.silent(duration=10 * 1000)  # 10 seconds of silence
+    tts_audio = tts_audio + silence
+    tts_duration_ms = len(tts_audio)
 
     combined_audio = combined_audio[:tts_duration_ms]
-    combined_audio = combined_audio - 18  
-    tts_audio = tts_audio + 6     
+    combined_audio = combined_audio - 20  
+    tts_audio = tts_audio + 2     
     final_combined = combined_audio.overlay(tts_audio)
     final_combined = final_combined.fade_in(2000).fade_out(2000)  
     final_combined.export(final_audio_path, format="mp3")
     
     return final_audio_path
 
-def create_final_video(image_folders, audio_path, project_folder, duration=780):
+def create_final_video(image_folders, audio_path, project_folder):
     temp_video_path = os.path.join(project_folder, "temp_video.mp4")
     final_output_path = os.path.join(project_folder, f"final_video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4")
 
@@ -102,55 +94,54 @@ def create_final_video(image_folders, audio_path, project_folder, duration=780):
         print(f"Final video already exists at {final_output_path}. Skipping video creation.")
         return final_output_path
 
-    print("Creating final video...")
-    if not os.path.exists(project_folder):
-        os.makedirs(project_folder)
+    if not os.path.exists(temp_video_path):
+        print("Creating temp video...")
+        if not os.path.exists(project_folder):
+            os.makedirs(project_folder)
 
-    image_files = []
-    for folder in image_folders:
-        image_files += [os.path.join(folder, file) for file in os.listdir(folder) if file.endswith(('.png', '.jpg', '.jpeg'))]
-    
-    random.shuffle(image_files)
-    selected_images = image_files[:int(duration / 60)]
-    images_list_path = os.path.join(project_folder, "images_list.txt")
-    with open(images_list_path, "w") as f:
-        for image in selected_images:
-            f.write(f"file '{os.path.abspath(image)}'\n")
-            f.write(f"duration {duration / len(selected_images)}\n")
-        f.write(f"file '{os.path.abspath(selected_images[-1])}'\n")  
+        image_files = []
+        for folder in image_folders:
+            image_files += [os.path.join(folder, file) for file in os.listdir(folder) if file.endswith(('.png', '.jpg', '.jpeg'))]
 
-    ffmpeg.input(images_list_path, format='concat', safe=0).output(
-        temp_video_path,
-        vcodec='libx264',
-        pix_fmt='yuv420p'
-    ).run()
+        random.shuffle(image_files)
 
-    tts_audio = AudioSegment.from_file(audio_path)
-    tts_duration_sec = tts_audio.duration_seconds
+        tts_audio = AudioSegment.from_file(audio_path)
+        tts_duration_sec = tts_audio.duration_seconds
 
-    ffmpeg.concat(ffmpeg.input(temp_video_path), ffmpeg.input(audio_path), v=1, a=1).output(
-        final_output_path,
-        vcodec='libx264',
-        acodec='aac',
-        pix_fmt='yuv420p',
-        shortest=None
-    ).run()
+        # Calculate the total number of images needed and repeat the images list to cover the entire duration
+        image_display_time = 120  # Display each image for 120 seconds
+        num_images_needed = int(tts_duration_sec // image_display_time) + 1
+        extended_image_files = image_files * (num_images_needed // len(image_files) + 1)
+        selected_images = extended_image_files[:num_images_needed]
 
-    trimmed_output_path = os.path.join(project_folder, f"final_video_trimmed_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4")
-    ffmpeg.input(final_output_path).output(
-        trimmed_output_path,
-        t=tts_duration_sec + 10,
-        vcodec='libx264',
-        acodec='aac',
-        pix_fmt='yuv420p'
-    ).run()
+        images_list_path = os.path.join(project_folder, "images_list.txt")
+        with open(images_list_path, "w") as f:
+            for image in selected_images:
+                f.write(f"file '{os.path.abspath(image)}'\n")
+                f.write(f"duration {image_display_time}\n")
+            f.write(f"file '{os.path.abspath(selected_images[-1])}'\n")  # Last image to persist for duration
 
-    os.remove(temp_video_path)
-    os.remove(images_list_path)
-    os.remove(final_output_path)
-    print(f'Final video saved to "{trimmed_output_path}"')
-    
-    return trimmed_output_path
+        # Create the video from images
+        ffmpeg.input(images_list_path, format='concat', safe=0).output(
+            temp_video_path,
+            vcodec='libx264',
+            pix_fmt='yuv420p',
+            r=25
+        ).run(overwrite_output=True)
+
+    # Combine the video with the TTS audio
+    print("Combining video with audio...")
+    video_input = ffmpeg.input(temp_video_path)
+    audio_input = ffmpeg.input(audio_path)
+    ffmpeg.output(video_input, audio_input, final_output_path,
+                  vcodec='libx264',
+                  acodec='aac',
+                  pix_fmt='yuv420p',
+                  shortest=None).run(overwrite_output=True)
+
+    print(f'Final video saved to "{final_output_path}"')
+
+    return final_output_path
 
 def process_warhammer40k_content():
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -158,13 +149,24 @@ def process_warhammer40k_content():
     music_folder = os.path.join(root_folder, "music")
     images_folder = os.path.join(root_folder, "images")
     scripts_folder = os.path.join(root_folder, "scripts")
+    project_folder = os.path.join(script_dir, '..', 'finished_material', 'project_final_clips')  # Adjusted path
+
+    temp_video_path = os.path.join(project_folder, "temp_video.mp4")
+    final_audio_path = os.path.join(project_folder, "final_combined_audio.mp3")
     
+    # Check if both temp_video.mp4 and final_combined_audio.mp3 exist
+    if os.path.exists(temp_video_path) and os.path.exists(final_audio_path):
+        print("Using existing temp_video.mp4 and final_combined_audio.mp3")
+        create_final_video([], final_audio_path, project_folder)
+        return
+
     # Print paths for debugging
     print(f"Script directory: {script_dir}")
     print(f"Root folder: {root_folder}")
     print(f"Music folder: {music_folder}")
     print(f"Images folder: {images_folder}")
     print(f"Scripts folder: {scripts_folder}")
+    print(f"Project folder: {project_folder}")
     
     # Ensure necessary directories exist
     if not os.path.exists(scripts_folder):
@@ -176,7 +178,7 @@ def process_warhammer40k_content():
     if not os.path.exists(images_folder):
         print(f"Images folder not found: {images_folder}. Exiting...")
         return
-    
+
     available_image_folders = {
         "1": os.path.join(images_folder, "emperor"),
         "2": os.path.join(images_folder, "mechanicus"),
@@ -190,23 +192,25 @@ def process_warhammer40k_content():
         "10": os.path.join(images_folder, "necron"),
         "11": os.path.join(images_folder, "tyranid"),
         "12": os.path.join(images_folder, "scale"),
-        "13": os.path.join(images_folder, "hive")
+        "13": os.path.join(images_folder, "hive"),
+        "14": os.path.join(images_folder, "MYTH_gods"),
+        "15": os.path.join(images_folder, "poseidon"),
+        "16": os.path.join(images_folder, "zeus"),
+        "17": os.path.join(images_folder, "hades"),
+        "18": os.path.join(images_folder, "odin"),
+        "19": os.path.join(images_folder, "thor"),
+        "20": os.path.join(images_folder, "loki"),
+        "21": os.path.join(images_folder, "tzneecht"),
+        "22": os.path.join(images_folder, "nurgle"),
+        "23": os.path.join(images_folder, "slaanesh"),
+        "24": os.path.join(images_folder, "khrone")
+
     }
     
     print("Select image folders to use (comma separated list of numbers):")
-    print("1 = emperor")
-    print("2 = mechanicus")
-    print("3 = siege_of_terra")
-    print("4 = space_battle")
-    print("5 = stc")
-    print("6 = orcs")
-    print("7 = filler")
-    print("8 = astronomican")
-    print("9 = warp")
-    print("10 = necron")
-    print("11 = tyranid")
-    print("12 = scale")
-    print("13 = hive")
+    for key, value in available_image_folders.items():
+        print(f"{key} = {os.path.basename(value)}")
+    
     selected_image_folders = input("Enter your choice: ").split(',')
     selected_folders = [available_image_folders[choice.strip()] for choice in selected_image_folders if choice.strip() in available_image_folders]
     
@@ -229,7 +233,6 @@ def process_warhammer40k_content():
     
     script_path = os.path.join(scripts_folder, scripts[script_choice])
     tts_output_folder = os.path.join(script_dir, '..', 'temp', 'tts_outputs')  # Adjusted path
-    project_folder = os.path.join(script_dir, '..', 'finished_material', 'project_final_clips')  # Adjusted path
     
     os.makedirs(tts_output_folder, exist_ok=True)
     os.makedirs(project_folder, exist_ok=True)

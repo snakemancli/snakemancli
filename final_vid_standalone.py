@@ -1,12 +1,13 @@
 import os
 import random
+import ffmpeg
 from datetime import datetime
 from pydub import AudioSegment
-import ffmpeg
+from pathlib import Path
 
-def create_final_video(image_folders, audio_path, project_folder):
-    temp_video_path = os.path.join(project_folder, "temp_video.mp4")
-    final_output_path = os.path.join(project_folder, f"final_video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4")
+def create_enhanced_video(image_folder, output_folder, video_duration=60):
+    temp_video_path = os.path.join(output_folder, "temp_video.mp4")
+    final_output_path = os.path.join(output_folder, f"final_video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4")
 
     if os.path.exists(final_output_path):
         print(f"Final video already exists at {final_output_path}. Skipping video creation.")
@@ -14,57 +15,53 @@ def create_final_video(image_folders, audio_path, project_folder):
 
     if not os.path.exists(temp_video_path):
         print("Creating temp video...")
-        if not os.path.exists(project_folder):
-            os.makedirs(project_folder)
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
 
-        image_files = []
-        for folder in image_folders:
-            image_files += [os.path.join(folder, file) for file in os.listdir(folder) if file.endswith(('.png', '.jpg', '.jpeg'))]
+        image_files = [os.path.join(image_folder, file) for file in os.listdir(image_folder) if file.endswith(('.png', '.jpg', '.jpeg'))]
+        
+        if not image_files:
+            print("No image files found in the specified folder. Exiting...")
+            return
 
         random.shuffle(image_files)
 
-        tts_audio = AudioSegment.from_file(audio_path)
-        tts_duration_sec = tts_audio.duration_seconds
+        # Limit video duration to 1 minute (60 seconds) for faster testing
+        total_duration_sec = video_duration
+        image_display_time = 5  # Display each image for 5 seconds
+        num_images_needed = int(total_duration_sec // image_display_time) + 1
 
-        # Calculate the total number of images needed and repeat the images list to cover the entire duration
-        image_display_time = 120  # Display each image for 120 seconds
-        num_images_needed = int(tts_duration_sec // image_display_time) + 1
         extended_image_files = image_files * (num_images_needed // len(image_files) + 1)
         selected_images = extended_image_files[:num_images_needed]
 
-        images_list_path = os.path.join(project_folder, "images_list.txt")
-        with open(images_list_path, "w") as f:
-            for image in selected_images:
-                f.write(f"file '{os.path.abspath(image)}'\n")
-                f.write(f"duration {image_display_time}\n")
-            f.write(f"file '{os.path.abspath(selected_images[-1])}'\n")  # Last image to persist for duration
+        # Create the video from images with fade and zoom effects
+        filters = []
+        for i in range(num_images_needed):
+            start_time = i * image_display_time
+            end_time = start_time + image_display_time
+            filters.append(
+                f"[{i}:v]zoompan=z='min(1.5,zoom+0.0015)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={image_display_time * 25}:s=1280x720,fade=t=in:st=0:d=1,fade=t=out:st={image_display_time-1}:d=1[v{i}];"
+            )
 
-        # Create the video from images
-        ffmpeg.input(images_list_path, format='concat', safe=0).output(
-            temp_video_path,
-            vcodec='libx264',
-            pix_fmt='yuv420p',
-            r=25
-        ).run()
+        filter_complex = "".join(filters) + "".join(f"[v{i}]" for i in range(num_images_needed)) + f"concat=n={num_images_needed}:v=1:a=0,format=yuv420p[v]"
+        input_files = [ffmpeg.input(image) for image in selected_images]
 
-    # Combine the video with the TTS audio
-    print("Combining video with audio...")
-    ffmpeg.input(temp_video_path).input(audio_path).output(
-        final_output_path,
-        vcodec='libx264',
-        acodec='aac',
-        pix_fmt='yuv420p',
-        shortest=1
-    ).run(overwrite_output=True)
+        video = ffmpeg.concat(*input_files, v=1, a=0)
+        video = ffmpeg.output(video, temp_video_path, vcodec='libx264', pix_fmt='yuv420p', r=25, filter_complex=filter_complex)
+        ffmpeg.run(video, overwrite_output=True)
 
-    os.remove(images_list_path)
     print(f'Final video saved to "{final_output_path}"')
 
     return final_output_path
 
-# Example usage
+# Example usage for sanity testing
 if __name__ == "__main__":
-    image_folders = ["/home/vandross/project/snakeman_2/source_material/40K/images/hades"]
-    audio_path = "/home/vandross/project/snakeman_2/finished_material/project_final_clips/final_combined_audio.mp3"
-    project_folder = "/home/vandross/project/snakeman_2/finished_material/project_final_clips"
-    create_final_video(image_folders, audio_path, project_folder)
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Create an enhanced video from images.')
+    parser.add_argument('--images', type=str, required=True, help='Path to the folder containing images')
+    parser.add_argument('--output', type=str, required=True, help='Path to the output folder')
+
+    args = parser.parse_args()
+
+    create_enhanced_video(args.images, args.output)

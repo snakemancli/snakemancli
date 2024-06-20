@@ -9,6 +9,11 @@ from openai import OpenAI
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+def get_audio_duration(audio_path):
+    probe = ffmpeg.probe(audio_path)
+    duration = float(probe['format']['duration'])
+    return duration
+
 def cleanup_folder(folder, exclude=[]):
     if os.path.exists(folder):
         for file in os.listdir(folder):
@@ -86,62 +91,78 @@ def combine_music_and_tts(tts_path, music_folder, output_folder):
     
     return final_audio_path
 
-def create_final_video(image_folders, audio_path, project_folder):
-    temp_video_path = os.path.join(project_folder, "temp_video.mp4")
-    final_output_path = os.path.join(project_folder, f"final_video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4")
+def create_video_segment(image_path, output_path, duration=30):
+    (
+        ffmpeg
+        .input(image_path, loop=1, t=duration)
+        .filter('zoompan', z='min(zoom+0.00075,1.5)', d=duration * 25 + 100, s='1280x720')
+        .filter('format', pix_fmts='yuv420p')
+        .filter('fade', t='in', st=0, d=1)
+        .filter('fade', t='out', st=duration-1, d=1)
+        .output(output_path, vcodec='libx264', pix_fmt='yuv420p', r=25, t=duration)
+        .run(overwrite_output=True)
+    )
 
-    if os.path.exists(final_output_path):
-        print(f"Final video already exists at {final_output_path}. Skipping video creation.")
-        return final_output_path
+def concatenate_segments(segment_paths, output_path, audio_path=None):
+    inputs = [ffmpeg.input(segment) for segment in segment_paths]
+    concat_filter = ffmpeg.concat(*inputs, v=1, a=0).node
+    video = concat_filter[0]
 
-    if not os.path.exists(temp_video_path):
-        print("Creating temp video...")
-        if not os.path.exists(project_folder):
-            os.makedirs(project_folder)
+    if audio_path:
+        audio = ffmpeg.input(audio_path)
+        audio_duration = get_audio_duration(audio_path)
+        final_audio_duration = audio_duration + 10  # Add 10 seconds of silence at the end
+        audio = (
+            audio
+            .filter('atrim', end=audio_duration)
+            .filter('apad', pad_len=10*44100)  # Assuming audio sample rate is 44100 Hz
+            .filter('atrim', end=final_audio_duration)
+        )
+        output = ffmpeg.output(video, audio, output_path, vcodec='libx264', pix_fmt='yuv420p', acodec='aac')
+    else:
+        output = ffmpeg.output(video, output_path, vcodec='libx264', pix_fmt='yuv420p')
 
-        image_files = []
-        for folder in image_folders:
-            image_files += [os.path.join(folder, file) for file in os.listdir(folder) if file.endswith(('.png', '.jpg', '.jpeg'))]
+    output.run(overwrite_output=True)
 
-        random.shuffle(image_files)
+def create_enhanced_video(image_folder, output_folder, audio_file=None):
+    temp_video_folder = os.path.join(output_folder, "temp_segments")
+    if not os.path.exists(temp_video_folder):
+        os.makedirs(temp_video_folder)
 
-        tts_audio = AudioSegment.from_file(audio_path)
-        tts_duration_sec = tts_audio.duration_seconds
+    final_output_path = os.path.join(output_folder, f"final_video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4")
 
-        # Calculate the total number of images needed and repeat the images list to cover the entire duration
-        image_display_time = 120  # Display each image for 120 seconds
-        num_images_needed = int(tts_duration_sec // image_display_time) + 1
-        extended_image_files = image_files * (num_images_needed // len(image_files) + 1)
-        selected_images = extended_image_files[:num_images_needed]
+    image_files = [os.path.join(image_folder, file) for file in os.listdir(image_folder) if file.endswith(('.png', '.jpg', '.jpeg'))]
 
-        images_list_path = os.path.join(project_folder, "images_list.txt")
-        with open(images_list_path, "w") as f:
-            for image in selected_images:
-                f.write(f"file '{os.path.abspath(image)}'\n")
-                f.write(f"duration {image_display_time}\n")
-            f.write(f"file '{os.path.abspath(selected_images[-1])}'\n")  # Last image to persist for duration
+    if not image_files:
+        print("No image files found in the specified folder. Exiting...")
+        return
 
-        # Create the video from images
-        ffmpeg.input(images_list_path, format='concat', safe=0).output(
-            temp_video_path,
-            vcodec='libx264',
-            pix_fmt='yuv420p',
-            r=25
-        ).run(overwrite_output=True)
+    if audio_file:
+        video_duration = get_audio_duration(audio_file) + 10  # Audio duration plus 10 seconds of silence
+    else:
+        video_duration = 60  # Default video duration if no audio file is provided
 
-    # Combine the video with the TTS audio
-    print("Combining video with audio...")
-    video_input = ffmpeg.input(temp_video_path)
-    audio_input = ffmpeg.input(audio_path)
-    ffmpeg.output(video_input, audio_input, final_output_path,
-                  vcodec='libx264',
-                  acodec='aac',
-                  pix_fmt='yuv420p',
-                  shortest=None).run(overwrite_output=True)
+    # Calculate the number of images needed and the display duration for each
+    image_display_time = 30  # Display each image for 30 seconds
+    num_images_needed = int(video_duration // image_display_time)
+    remaining_time = video_duration % image_display_time
 
-    print(f'Final video saved to "{final_output_path}"')
+    extended_image_files = image_files * (num_images_needed // len(image_files) + 1)
+    selected_images = extended_image_files[:num_images_needed]
 
-    return final_output_path
+    segment_paths = []
+    for i, image in enumerate(selected_images):
+        segment_path = os.path.join(temp_video_folder, f"segment_{i}.mp4")
+        create_video_segment(image, segment_path, duration=image_display_time)
+        segment_paths.append(segment_path)
+
+    if remaining_time > 0:
+        last_segment_path = os.path.join(temp_video_folder, f"segment_{num_images_needed}.mp4")
+        create_video_segment(selected_images[-1], last_segment_path, duration=remaining_time)
+        segment_paths.append(last_segment_path)
+
+    concatenate_segments(segment_paths, final_output_path, audio_file)
+    print(f"Final video saved to {final_output_path}")
 
 def process_warhammer40k_content():
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -157,7 +178,7 @@ def process_warhammer40k_content():
     # Check if both temp_video.mp4 and final_combined_audio.mp3 exist
     if os.path.exists(temp_video_path) and os.path.exists(final_audio_path):
         print("Using existing temp_video.mp4 and final_combined_audio.mp3")
-        create_final_video([], final_audio_path, project_folder)
+        create_enhanced_video([], final_audio_path, project_folder)
         return
 
     # Print paths for debugging
@@ -204,7 +225,6 @@ def process_warhammer40k_content():
         "22": os.path.join(images_folder, "nurgle"),
         "23": os.path.join(images_folder, "slaanesh"),
         "24": os.path.join(images_folder, "khrone")
-
     }
     
     print("Select image folders to use (comma separated list of numbers):")
@@ -240,7 +260,8 @@ def process_warhammer40k_content():
     tts_path = generate_tts_for_script(script_path, tts_output_folder)
     final_audio_path = combine_music_and_tts(tts_path, music_folder, project_folder)
     if final_audio_path:
-        create_final_video(selected_folders, final_audio_path, project_folder)
+        for selected_folder in selected_folders:
+            create_enhanced_video(selected_folder, project_folder, final_audio_path)
         cleanup_folder(tts_output_folder)
         cleanup_folder(os.path.join(root_folder, "source_material"))
     else:

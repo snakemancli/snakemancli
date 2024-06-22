@@ -39,7 +39,7 @@ def generate_tts_for_script(script_path, tts_output_folder):
     for i in range(0, len(script_content), part_size):
         part_content = script_content[i:i+part_size]
         response = client.audio.speech.create(
-            model="tts-1",
+            model="tts-1-hd",
             voice="onyx",
             input=part_content
         )
@@ -83,7 +83,7 @@ def combine_music_and_tts(tts_path, music_folder, output_folder):
     tts_duration_ms = len(tts_audio)
 
     combined_audio = combined_audio[:tts_duration_ms]
-    combined_audio = combined_audio - 20  
+    combined_audio = combined_audio - 21  
     tts_audio = tts_audio + 2     
     final_combined = combined_audio.overlay(tts_audio)
     final_combined = final_combined.fade_in(2000).fade_out(2000)  

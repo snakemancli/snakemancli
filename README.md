@@ -30,14 +30,12 @@ export YOUTUBE_API_KEY="your-youtube-api-key"
 ```
 
 # 4. Use the CLI Menu to Resolve Dependencies
-# Use the CLI menu to select "Dependency check"
-# and resolve all required dependencies.
+ Use the CLI menu to select "Dependency check"
+ and resolve all required dependencies.
 ```bash
 snakeman
 ```
 
 # 5. You Are Ready to Use the Project
-# Use the `snakeman` alias to start the CLI menu and run the project.
+ Use the `snakeman` alias to start the CLI menu and run the project.
 snakeman
-This project is licensed under the Zero-Clause BSD License - see the [LICENSE](LICENSE) file for details.
-

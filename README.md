@@ -38,4 +38,3 @@ snakeman
 
 # 5. You Are Ready to Use the Project
  Use the `snakeman` alias to start the CLI menu and run the project.
-snakeman

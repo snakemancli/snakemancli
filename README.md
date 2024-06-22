@@ -1,48 +1,43 @@
-# Snakeman CLI
+# Snakeman Project Setup Guide
 
-Snakeman CLI is a command-line interface for automating various video and image processing tasks. It supports downloading videos and images, captioning images, editing videos with and without TTS, and creating long-format content from local source material.
+## Prerequisites
+- Python 3
+- pip
+- System packages like ffmpeg, tesseract
 
-## Features
+## Setup Steps
 
-- **Download Mode**: Download videos or images using specified keywords.
-- **Automated Download and Creation Mode**: Automatically download and process videos.
-- **Image Captioner**: Caption downloaded images.  
-- **No TTS Edit**: Process videos without TTS.
-- **Warhammer**: Create long-format content from local source material. 
-- **TTS Edit**: Process videos with TTS.
-- **Dependency Check**: Install general or CPU-only requirements.
+```bash
+# 1. Download the Repository
+git clone https://github.com/snakemancli/snakemancli.git
+cd snakemancli
+```
 
-## Requirements
+# 2. Edit the top of snakemancli.sh File to Include Your API Keys
+# Environment variables
 
-- Python 3.7 or higher
-- Virtualenv
-- Tested on Arch Linux and Gentoo
+```bash
+vim snakemancli.sh
 
+export OPENAI_API_KEY="your-openai-api-key"
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/google-credentials.json"
+export YOUTUBE_API_KEY="your-youtube-api-key"
+```
 
+# 3. Run setup.sh in the Project Root
+```bash
+./setup.sh
+```
 
-## Installation
+# 4. Use the CLI Menu to Resolve Dependencies
+# Use the CLI menu to select "Dependency check"
+# and resolve all required dependencies.
+```bash
+snakeman
+```
 
-1. Clone the repository:
-    ```sh
-    git clone https://github.com/Jason-Goon/snakemancli.git
-    cd snakeman-CLI
-    ```
-
-
-## Configuration
-
-Before running the script, you need to update the `snakemacli.sh` file with your own API keys
-
-
-
-2. You are ready to use the tool:
-    ```sh
-    chmod +x snakemancli.sh
-    ./snakemancli.sh
-
-    ```
-
-#
-
+# 5. You Are Ready to Use the Project
+# Use the `snakeman` alias to start the CLI menu and run the project.
+snakeman
 This project is licensed under the Zero-Clause BSD License - see the [LICENSE](LICENSE) file for details.
 
